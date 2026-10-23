@@ -17,82 +17,82 @@ CHROOT_DIR=/mnt/colima-img
 FILE="$IMG_DIR/$FILENAME"
 
 install_dependencies() (
-	apt-get update
-	apt-get install -y file fdisk libdigest-sha-perl qemu-utils
+    apt-get update
+    apt-get install -y file fdisk libdigest-sha-perl qemu-utils
 )
 
 convert_file() (
-	qemu-img convert -p -f qcow2 -O raw $FILE.img $FILE.raw
+    qemu-img convert -p -f qcow2 -O raw $FILE.img $FILE.raw
 )
 
 extract_partition_offset() (
-	fdisk -l $FILE.raw | grep "$FILE.raw1 " | awk -F' ' '{print $2}'
+    fdisk -l $FILE.raw | grep "$FILE.raw1 " | awk -F' ' '{print $2}'
 )
 
 mount_partition() (
-	mkdir -p $CHROOT_DIR
-	mount -o loop,offset=$(($1 * 512)) $FILE.raw $CHROOT_DIR
+    mkdir -p $CHROOT_DIR
+    mount -o loop,offset=$(($1 * 512)) $FILE.raw $CHROOT_DIR
 )
 
 unmount_partition() (
-	umount $CHROOT_DIR
+    umount $CHROOT_DIR
 )
 
 chroot_exec() (
-	chroot $CHROOT_DIR "$@"
+    chroot $CHROOT_DIR "$@"
 )
 
 install_packages() (
-	# necessary
-	chroot_exec mount -t proc proc /proc
-	chroot_exec mount -t devpts devpts /dev/pts
+    # necessary
+    chroot_exec mount -t proc proc /proc
+    chroot_exec mount -t devpts devpts /dev/pts
 
-	# internet
-	chroot_exec mv /etc/resolv.conf /etc/resolv.conf.bak
-	echo 'nameserver 1.1.1.1' >$CHROOT_DIR/etc/resolv.conf
+    # internet
+    chroot_exec mv /etc/resolv.conf /etc/resolv.conf.bak
+    echo 'nameserver 1.1.1.1' >$CHROOT_DIR/etc/resolv.conf
 
-	# prepare packages
-	chroot_exec apt-get update
+    # prepare packages
+    chroot_exec apt-get update
 
-	# packages common to all runtimes, to prevent from final purging
-	chroot_exec apt-get install -y iptables socat sshfs cloud-init lsb-release python3-apt gnupg curl wget dnsmasq
+    # packages common to all runtimes, to prevent from final purging
+    chroot_exec apt-get install -y iptables socat sshfs cloud-init lsb-release python3-apt gnupg curl wget dnsmasq
 
-	# none
-	if [ "$RUNTIME" == "none" ]; then
-		(
-			chroot_exec apt-get install -y htop inetutils-ping dnsutils net-tools netcat-openbsd telnet vim-tiny nano
-			chroot_exec apt-get purge -y dmsetup xz-utils
-		)
-	fi
+    # none
+    if [ "$RUNTIME" == "none" ]; then
+        (
+            chroot_exec apt-get install -y htop inetutils-ping dnsutils net-tools netcat-openbsd telnet vim-tiny nano
+            chroot_exec apt-get purge -y dmsetup xz-utils
+        )
+    fi
 
-	# docker
-	if [ "$RUNTIME" == "docker" ]; then
-		(
-			chroot_exec curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
-			chroot_exec sh /tmp/get-docker.sh --version $DOCKER_VERSION
-			chroot_exec rm /tmp/get-docker.sh
-			chroot_exec apt-mark hold docker-ce docker-ce-cli containerd.io
-			chroot_exec apt-get purge -y dmsetup xz-utils
-		)
-	fi
+    # docker
+    if [ "$RUNTIME" == "docker" ]; then
+        (
+            chroot_exec curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
+            chroot_exec sh /tmp/get-docker.sh --version $DOCKER_VERSION
+            chroot_exec rm /tmp/get-docker.sh
+            chroot_exec apt-mark hold docker-ce docker-ce-cli containerd.io
+            chroot_exec apt-get purge -y dmsetup xz-utils
+        )
+    fi
 
-	# containerd
-	if [ "$RUNTIME" == "containerd" ]; then
-		(
-			cd /tmp
-			tar Cxfz ${CHROOT_DIR}/usr/local /build/dist/containerd/containerd-utils-${ARCH}.tar.gz
-			chroot_exec mkdir -p /opt/cni
-			chroot_exec mv /usr/local/libexec/cni /opt/cni/bin
-			chroot_exec apt-get purge -y dmsetup xz-utils
-		)
-	fi
+    # containerd
+    if [ "$RUNTIME" == "containerd" ]; then
+        (
+            cd /tmp
+            tar Cxfz ${CHROOT_DIR}/usr/local /build/dist/containerd/containerd-utils-${ARCH}.tar.gz
+            chroot_exec mkdir -p /opt/cni
+            chroot_exec mv /usr/local/libexec/cni /opt/cni/bin
+            chroot_exec apt-get purge -y dmsetup xz-utils
+        )
+    fi
 
-	# incus
-	if [ "$RUNTIME" == "incus" ]; then
-		(
-			chroot_exec mkdir -p /etc/apt/keyrings/
-			chroot_exec curl -fsSL https://pkgs.zabbly.com/key.asc -o /etc/apt/keyrings/zabbly.asc
-			chroot_exec sh -c 'cat <<EOF > /etc/apt/sources.list.d/zabbly-incus-stable.sources
+    # incus
+    if [ "$RUNTIME" == "incus" ]; then
+        (
+            chroot_exec mkdir -p /etc/apt/keyrings/
+            chroot_exec curl -fsSL https://pkgs.zabbly.com/key.asc -o /etc/apt/keyrings/zabbly.asc
+            chroot_exec sh -c 'cat <<EOF > /etc/apt/sources.list.d/zabbly-incus-stable.sources
 Enabled: yes
 Types: deb
 URIs: https://pkgs.zabbly.com/incus/stable
@@ -102,52 +102,52 @@ Architectures: $(dpkg --print-architecture)
 Signed-By: /etc/apt/keyrings/zabbly.asc
 
 EOF'
-			chroot_exec apt-get update
-			chroot_exec apt-get install -y htop inetutils-ping dnsutils net-tools netcat-openbsd telnet vim-tiny nano
-			chroot_exec apt-get install -y incus incus-base incus-client incus-extra incus-ui-canonical zfsutils-linux btrfs-progs lvm2 thin-provisioning-tools
-			chroot_exec apt-mark hold incus incus-base incus-client incus-extra incus-ui-canonical zfsutils-linux btrfs-progs lvm2 thin-provisioning-tools
-		)
-	fi
+            chroot_exec apt-get update
+            chroot_exec apt-get install -y htop inetutils-ping dnsutils net-tools netcat-openbsd telnet vim-tiny nano
+            chroot_exec apt-get install -y incus incus-base incus-client incus-extra incus-ui-canonical zfsutils-linux btrfs-progs lvm2 thin-provisioning-tools
+            chroot_exec apt-mark hold incus incus-base incus-client incus-extra incus-ui-canonical zfsutils-linux btrfs-progs lvm2 thin-provisioning-tools
+        )
+    fi
 
-	chroot_exec apt-get purge -y apport console-setup-linux dbus-user-session liblocale-gettext-perl lxd-agent-loader lxd-installer parted pciutils pollinate python3-gi snapd ssh-import-id
-	chroot_exec apt-get purge -y ubuntu-advantage-tools ubuntu-cloud-minimal ubuntu-drivers-common ubuntu-release-upgrader-core unattended-upgrades systemd-resolved
+    chroot_exec apt-get purge -y apport console-setup-linux dbus-user-session liblocale-gettext-perl lxd-agent-loader lxd-installer parted pciutils pollinate python3-gi snapd ssh-import-id
+    chroot_exec apt-get purge -y ubuntu-advantage-tools ubuntu-cloud-minimal ubuntu-drivers-common ubuntu-release-upgrader-core unattended-upgrades systemd-resolved
 
-	chroot_exec apt-get autoremove -y
-	chroot_exec apt-get clean -y
-	chroot_exec sh -c "rm -rf /var/lib/apt/lists/* /var/cache/apt/*"
+    chroot_exec apt-get autoremove -y
+    chroot_exec apt-get clean -y
+    chroot_exec sh -c "rm -rf /var/lib/apt/lists/* /var/cache/apt/*"
 
-	# binfmt
-	(
-		cd /tmp
-		tar xfz /build/dist/binfmt/binfmt-${ARCH}.tar.gz
-		chown root:root binfmt qemu-i386 qemu-${BINFMT_ARCH}
-		mv binfmt qemu-i386 qemu-${BINFMT_ARCH} ${CHROOT_DIR}/usr/bin
-	)
+    # binfmt
+    (
+        cd /tmp
+        tar xfz /build/dist/binfmt/binfmt-${ARCH}.tar.gz
+        chown root:root binfmt qemu-i386 qemu-${BINFMT_ARCH}
+        mv binfmt qemu-i386 qemu-${BINFMT_ARCH} ${CHROOT_DIR}/usr/bin
+    )
 
-	# enable vsock modules at boot
-	cat >${CHROOT_DIR}/etc/modules-load.d/vsock.conf <<EOF
+    # enable vsock modules at boot
+    cat >${CHROOT_DIR}/etc/modules-load.d/vsock.conf <<EOF
 vsock
 virtio_vsock
 EOF
 
-	# clean traces
-	chroot_exec rm /etc/resolv.conf
-	chroot_exec mv /etc/resolv.conf.bak /etc/resolv.conf
-	chroot_exec umount /dev/pts
-	chroot_exec umount /proc
+    # clean traces
+    chroot_exec rm /etc/resolv.conf
+    chroot_exec mv /etc/resolv.conf.bak /etc/resolv.conf
+    chroot_exec umount /dev/pts
+    chroot_exec umount /proc
 
-	# fill partition with zeros, to recover space during compression
-	chroot_exec dd if=/dev/zero of=/root/zero || echo done
-	chroot_exec rm -f /root/zero
+    # fill partition with zeros, to recover space during compression
+    chroot_exec dd if=/dev/zero of=/root/zero || echo done
+    chroot_exec rm -f /root/zero
 )
 
 compress_file() (
-	raw_file="${FILE}-${RUNTIME}.raw"
-	mv $FILE.raw $raw_file
-	gzip -9 -n -f $raw_file
-	dir="$(dirname $raw_file)"
-	filename="$(basename $raw_file)"
-	(cd $dir && shasum -a 512 "${filename}.gz" >"${filename}.gz.sha512sum")
+    raw_file="${FILE}-${RUNTIME}.raw"
+    mv $FILE.raw $raw_file
+    gzip -9 -n -f $raw_file
+    dir="$(dirname $raw_file)"
+    filename="$(basename $raw_file)"
+    (cd $dir && shasum -a 512 "${filename}.gz" >"${filename}.gz.sha512sum")
 )
 
 # perform all actions

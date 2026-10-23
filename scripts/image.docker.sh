@@ -16,11 +16,11 @@ docker run --privileged --rm tonistiigi/binfmt --install $BINFMT_ARCH
 
 # build disk image
 docker run --rm --privileged \
-	--platform linux/$ARCH \
-	--volume $SCRIPT_DIR:/build \
-	--env ARCH \
-	--env BINFMT_ARCH \
-	--env UBUNTU_VERSION \
-	--env DOCKER_VERSION \
-	--env RUNTIME \
-	ubuntu:${UBUNTU_VERSION} /build/scripts/image.sh
+    --platform linux/$ARCH \
+    --volume $SCRIPT_DIR:/build \
+    --env ARCH \
+    --env BINFMT_ARCH \
+    --env UBUNTU_VERSION \
+    --env DOCKER_VERSION \
+    --env RUNTIME \
+    ubuntu:${UBUNTU_VERSION} /build/scripts/image.sh
